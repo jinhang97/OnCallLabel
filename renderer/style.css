@@ -1,0 +1,176 @@
+/* style.css - 随时标签 UI 样式 */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Microsoft YaHei UI", "PingFang SC", "Segoe UI", sans-serif;
+  /* 透明背景：BrowserWindow 已经透明 */
+  background: transparent;
+  cursor: default;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.label {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 30, 36, 0.92);
+  color: #E6E6E6;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
+  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.label.dragging {
+  cursor: grabbing;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75);
+}
+
+.label-text {
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 14px;
+  width: 100%;
+  word-break: break-word;
+  white-space: pre-wrap;
+  pointer-events: none;
+  line-height: 1.25;
+  letter-spacing: 0.5px;
+}
+
+.edit-box {
+  position: absolute;
+  inset: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-box.hidden {
+  display: none;
+}
+
+.edit-box textarea {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.97);
+  color: #1f1f1f;
+  border: 2px solid #4A90E2;
+  border-radius: 6px;
+  text-align: center;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: 600;
+  padding: 4px 8px;
+  outline: none;
+  resize: none;
+  line-height: 1.25;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.status-dot {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #43C59B;
+  box-shadow: 0 0 6px currentColor;
+  transition: background 0.2s ease;
+}
+
+body[data-state="inactive"] .status-dot {
+  background: #E0A458;
+}
+
+/* 设置齿轮按钮 */
+.settings-btn {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.4;
+  transition: opacity 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  z-index: 5;
+}
+
+.settings-btn:hover {
+  opacity: 1;
+  color: rgba(255, 255, 255, 0.9);
+  transform: rotate(30deg);
+}
+
+body[data-editing="true"] .settings-btn {
+  display: none;
+}
+
+.hint {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 8px;
+  opacity: 0.45;
+  pointer-events: none;
+  letter-spacing: 0.3px;
+}
+
+/* 调整大小热区：4 个边 + 4 个角 */
+.label::before,
+.label::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+/* === Ctrl 按住时才显示 resize 鼠标光标 === */
+body[data-ctrl="true"] .label[data-edge="left"]   { cursor: ew-resize; }
+body[data-ctrl="true"] .label[data-edge="right"]  { cursor: ew-resize; }
+body[data-ctrl="true"] .label[data-edge="top"]    { cursor: ns-resize; }
+body[data-ctrl="true"] .label[data-edge="bottom"] { cursor: ns-resize; }
+body[data-ctrl="true"] .label[data-edge="top-left"]     { cursor: nwse-resize; }
+body[data-ctrl="true"] .label[data-edge="top-right"]    { cursor: nesw-resize; }
+body[data-ctrl="true"] .label[data-edge="bottom-left"]  { cursor: nesw-resize; }
+body[data-ctrl="true"] .label[data-edge="bottom-right"] { cursor: nwse-resize; }
+
+/* === 设置入口（齿轮）已移至独立设置窗 === */
+
+/* 编辑模式下隐藏拖动光标 */
+body[data-editing="true"] .label {
+  cursor: default;
+}

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>OnCallLabel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="dark" data-ctrl="false">
+  <div id="label" class="label">
+    <div id="label-text" class="label-text">随时标签</div>
+    <div id="edit-box" class="edit-box hidden">
+      <textarea id="edit-input" maxlength="400" rows="2"></textarea>
+    </div>
+    <div class="status-dot" id="status-dot" title="当前状态"></div>
+    <button class="settings-btn" id="settings-btn" title="设置（也可右键）">⚙</button>
+    <div class="hint" id="hint">Ctrl+双击编辑 · 拖动移动 · ⚙ 设置</div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

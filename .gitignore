@@ -1,0 +1,22 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+build/OnCallLabel.cer
+
+# 日志与临时文件
+*.log
+npm-debug.log*
+shot-*.png
+as-test.log
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Electron 打包缓存
+out/
+release/

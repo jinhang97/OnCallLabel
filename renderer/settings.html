@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>设置</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <div id="panel" class="panel">
+    <div class="panel-header" id="drag-bar">
+      <span class="panel-title">设置</span>
+      <button class="close-btn" id="close-btn" title="关闭">×</button>
+    </div>
+
+    <div class="panel-body">
+      <!-- 主题 -->
+      <div class="section-title">主题</div>
+      <div id="theme-list" class="theme-list"></div>
+
+      <div class="divider"></div>
+
+      <!-- 字体 -->
+      <div class="section-title">字体</div>
+      <div class="control-row">
+        <button class="ctrl-btn" id="font-minus" title="减小字号">A−</button>
+        <span class="font-size-label" id="font-size-label">18</span>
+        <button class="ctrl-btn" id="font-plus" title="增大字号">A+</button>
+        <span class="row-gap"></span>
+        <button class="ctrl-btn" id="font-bold" title="加粗"><b>B</b></button>
+        <button class="ctrl-btn" id="font-italic" title="斜体"><i>I</i></button>
+      </div>
+
+      <div class="section-title">对齐方式</div>
+      <div class="control-row">
+        <button class="ctrl-btn align-btn" id="align-left" title="左对齐">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 5h18M3 10h12M3 15h18M3 20h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <button class="ctrl-btn align-btn" id="align-center" title="居中">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 5h18M6 10h12M3 15h18M6 20h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <button class="ctrl-btn align-btn" id="align-right" title="右对齐">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 5h18M9 10h12M3 15h18M9 20h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- 通用 -->
+      <div class="toggle-row" id="autostart-row">
+        <div class="toggle-label">
+          <div class="toggle-name">开机自动启动</div>
+          <div class="toggle-desc">也可在任务管理器「启动」中管理</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="autostart-toggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- 操作 -->
+      <div class="action" id="action-edit">编辑文本</div>
+      <div class="action" id="action-reset">重置位置与大小</div>
+      <div class="action danger" id="action-quit">退出</div>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
