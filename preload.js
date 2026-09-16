@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('oncall', {
   saveGeometry: () => ipcRenderer.send('window:save-geometry'),
   focusWindow: () => ipcRenderer.send('window:focus'),
   resetWindow: () => ipcRenderer.send('window:reset'),
+  resetSize: () => ipcRenderer.send('window:reset-size'),
   quitApp: () => ipcRenderer.send('app:quit'),
 
   // 设置弹窗

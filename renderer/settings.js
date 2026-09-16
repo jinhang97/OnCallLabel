@@ -113,6 +113,11 @@
     window.oncall.closeSettings();
   });
 
+  document.getElementById('action-reset-size').addEventListener('click', async () => {
+    await window.oncall.resetSize();
+    window.oncall.closeSettings();
+  });
+
   document.getElementById('action-quit').addEventListener('click', () => {
     window.oncall.quitApp();
   });

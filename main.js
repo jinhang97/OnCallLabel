@@ -167,6 +167,7 @@ let settings = loadSettings();
 let currentTheme = null;
 let foregroundTimer = null;
 let lastOpacityState = null;  // 'active' | 'inactive'
+let userResizing = false;  // 仅用户 Ctrl+拖边缘 resize 时为 true
 
 function createWindow() {
   const themes = getAllThemes();
@@ -222,6 +223,25 @@ function createWindow() {
     const [wx, wy] = mainWindow.getPosition();
     settings.position = { x: wx, y: wy };
     // 不立即写盘，避免频繁 IO；由 before-quit 时统一保存
+  });
+
+  // 拦截系统发起的 resize（DPI 变化、多显示器跨屏等），仅放行用户 Ctrl+拖边缘
+  mainWindow.on('will-resize', (e) => {
+    if (!userResizing) {
+      e.preventDefault();
+    }
+  });
+
+  // 兜底：如果窗口尺寸被系统改了，立即纠正回来
+  let correctingSize = false;
+  mainWindow.on('resize', () => {
+    if (userResizing || correctingSize) return;
+    const [w, h] = mainWindow.getSize();
+    if (w !== settings.size.width || h !== settings.size.height) {
+      correctingSize = true;
+      mainWindow.setSize(settings.size.width, settings.size.height);
+      correctingSize = false;
+    }
   });
 
   // 失焦时统一保存一次
@@ -473,12 +493,14 @@ ipcMain.on('window:drag', (e, dx, dy) => {
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
   let nx = Math.max(-settings.size.width + 40, Math.min(x + dx, sw - 40));
   let ny = Math.max(0, Math.min(y + dy, sh - 30));
-  mainWindow.setPosition(nx, ny);
+  // 用 setBounds 代替 setPosition，每次拖动都显式锁定尺寸，杜绝 DPI 触发的系统 resize
+  mainWindow.setBounds({ x: nx, y: ny, width: settings.size.width, height: settings.size.height });
 });
 
 // 调整大小：传增量 dw/dh 与拖动方向 edges
 ipcMain.on('window:resize', (e, dw, dh, edges) => {
   if (!mainWindow) return;
+  userResizing = true;
   const [x, y] = mainWindow.getPosition();
   const [w, h] = mainWindow.getSize();
   let nw = w, nh = h, nx = x, ny = y;
@@ -496,12 +518,12 @@ ipcMain.on('window:resize', (e, dw, dh, edges) => {
   mainWindow.setBounds({ x: nx, y: ny, width: nw, height: nh });
 });
 
+// 保存位置（尺寸由 resize 处理器维护，不盲目从窗口回读，防止 DPI 污染）
 ipcMain.on('window:save-geometry', () => {
   if (!mainWindow) return;
+  userResizing = false;
   const [x, y] = mainWindow.getPosition();
-  const [w, h] = mainWindow.getSize();
   settings.position = { x, y };
-  settings.size = { width: w, height: h };
   saveSettings(settings);
 });
 
@@ -522,6 +544,16 @@ ipcMain.on('window:reset', () => {
   settings.size = { width: nw, height: nh };
   settings.position = { x: nx, y: ny };
   mainWindow.setBounds({ x: nx, y: ny, width: nw, height: nh });
+  saveSettings(settings);
+});
+
+// 仅重置大小，保留当前位置
+ipcMain.on('window:reset-size', () => {
+  if (!mainWindow) return;
+  const [x, y] = mainWindow.getPosition();
+  const nw = 240, nh = 88;
+  settings.size = { width: nw, height: nh };
+  mainWindow.setBounds({ x, y, width: nw, height: nh });
   saveSettings(settings);
 });
 
