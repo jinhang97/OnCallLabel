@@ -77,7 +77,8 @@ const defaultSettings = {
   textAlign: 'center',  // 'left' | 'center' | 'right'
   showBorder: true,
   alwaysOnTop: true,
-  autoStart: false
+  autoStart: false,
+  uiMode: 'expanded'  // 'expanded' 完整显示 | 'ball' 悬浮球
 };
 
 const builtinThemes = {
@@ -169,21 +170,75 @@ let foregroundTimer = null;
 let lastOpacityState = null;  // 'active' | 'inactive'
 let userResizing = false;  // 仅用户 Ctrl+拖边缘 resize 时为 true
 
+// ====== 悬浮球模式常量与状态 ======
+const BALL_WIN = 56;         // 悬浮球窗口边长（与 CSS 中 .ball 48px + 边距对应）
+const SNAP_THRESHOLD = 20;   // 拖动释放时距屏幕边缘 < 20px → 半圆贴边隐藏
+let ballSnapped = false;     // 是否处于"贴边半圆隐藏"状态
+let ballSnapEdge = null;     // 'left' | 'right' | 'top' | 'bottom' | null
+
+// 切换展开/收起模式；收起为悬浮球，展开恢复完整便签
+function applyUiMode(mode) {
+  if (mode !== 'ball' && mode !== 'expanded') return;
+  settings.uiMode = mode;
+  saveSettings(settings);
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
+  userResizing = true;
+  try {
+    if (mode === 'ball') {
+      // 以当前窗口中心为基准，缩小为悬浮球
+      const [x, y] = mainWindow.getPosition();
+      const [w, h] = mainWindow.getSize();
+      let nx = x + Math.round((w - BALL_WIN) / 2);
+      let ny = y + Math.round((h - BALL_WIN) / 2);
+      nx = Math.max(-BALL_WIN + 4, Math.min(nx, sw - 4));
+      ny = Math.max(0, Math.min(ny, sh - BALL_WIN + 4));
+      ballSnapped = false;
+      ballSnapEdge = null;
+      mainWindow.setBounds({ x: nx, y: ny, width: BALL_WIN, height: BALL_WIN });
+      // 收起为小球后，设置窗没有存在的必要（避免父窗口缩小时设置窗跳动）
+      closeSettingsWindow();
+    } else {
+      // 恢复完整便签：以球中心为基准展开
+      ballSnapped = false;
+      ballSnapEdge = null;
+      const [x, y] = mainWindow.getPosition();
+      const w = settings.size.width, h = settings.size.height;
+      let nx = x + Math.round((BALL_WIN - w) / 2);
+      let ny = y + Math.round((BALL_WIN - h) / 2);
+      nx = Math.max(0, Math.min(nx, sw - 80));
+      ny = Math.max(0, Math.min(ny, sh - 40));
+      settings.position = { x: nx, y: ny };
+      mainWindow.setBounds({ x: nx, y: ny, width: w, height: h });
+    }
+  } finally {
+    userResizing = false;
+  }
+  saveSettings(settings);
+  // 广播模式变化，让主标签与设置窗同步 UI
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (!win.isDestroyed()) win.webContents.send('ui:mode-changed', { uiMode: mode });
+  });
+}
+
 function createWindow() {
   const themes = getAllThemes();
   currentTheme = themes[settings.theme] || themes.dark;
 
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
-  let x = settings.position ? settings.position.x : Math.floor((sw - settings.size.width) / 2);
-  let y = settings.position ? settings.position.y : Math.floor((sh - settings.size.height) / 2);
+  const winW = settings.uiMode === 'ball' ? BALL_WIN : settings.size.width;
+  const winH = settings.uiMode === 'ball' ? BALL_WIN : settings.size.height;
+  let x = settings.position ? settings.position.x : Math.floor((sw - winW) / 2);
+  let y = settings.position ? settings.position.y : Math.floor((sh - winH) / 2);
 
   // 边界保护：确保不跑到屏幕外
   x = Math.max(0, Math.min(x, sw - 80));
   y = Math.max(0, Math.min(y, sh - 40));
 
   mainWindow = new BrowserWindow({
-    width: settings.size.width,
-    height: settings.size.height,
+    width: winW,
+    height: winH,
     x: x,
     y: y,
     frame: false,
@@ -232,14 +287,16 @@ function createWindow() {
     }
   });
 
-  // 兜底：如果窗口尺寸被系统改了，立即纠正回来
+  // 兜底：如果窗口尺寸被系统改了，立即纠正回来（目标尺寸随模式变化）
   let correctingSize = false;
   mainWindow.on('resize', () => {
     if (userResizing || correctingSize) return;
     const [w, h] = mainWindow.getSize();
-    if (w !== settings.size.width || h !== settings.size.height) {
+    const tw = settings.uiMode === 'ball' ? BALL_WIN : settings.size.width;
+    const th = settings.uiMode === 'ball' ? BALL_WIN : settings.size.height;
+    if (w !== tw || h !== th) {
       correctingSize = true;
-      mainWindow.setSize(settings.size.width, settings.size.height);
+      mainWindow.setSize(tw, th);
       correctingSize = false;
     }
   });
@@ -426,12 +483,20 @@ ipcMain.handle('settings:get', () => {
 ipcMain.handle('settings:patch', (e, patch) => {
   settings = Object.assign({}, settings, patch);
   saveSettings(settings);
-  // 通知其他窗口（主标签）实时刷新字体/对齐等设置
-  BrowserWindow.getAllWindows().forEach(win => {
-    if (win.webContents.id !== e.sender.id) {
-      win.webContents.send('settings:patched', { settings: settings });
-    }
-  });
+  if (patch.uiMode && patch.uiMode !== 'expanded' && patch.uiMode !== 'ball') {
+    delete patch.uiMode;  // 非法值忽略
+  }
+  if (patch.uiMode) {
+    // 模式切换由 applyUiMode 统一处理窗口几何与广播
+    applyUiMode(patch.uiMode);
+  } else {
+    // 通知其他窗口（主标签）实时刷新字体/对齐等设置
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (win.webContents.id !== e.sender.id) {
+        win.webContents.send('settings:patched', { settings: settings });
+      }
+    });
+  }
   return { settings: settings, theme: currentTheme };
 });
 
@@ -486,20 +551,30 @@ ipcMain.on('edit:start', () => {
   }
 });
 
-// 拖动：增量移动
+// 拖动：增量移动（展开态与悬浮球共用；球模式贴边在释放时由 ball:end-drag 处理）
 ipcMain.on('window:drag', (e, dx, dy) => {
   if (!mainWindow) return;
   const [x, y] = mainWindow.getPosition();
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
-  let nx = Math.max(-settings.size.width + 40, Math.min(x + dx, sw - 40));
-  let ny = Math.max(0, Math.min(y + dy, sh - 30));
+  let nx, ny;
+  if (settings.uiMode === 'ball') {
+    nx = Math.max(-BALL_WIN + 4, Math.min(x + dx, sw - 4));
+    ny = Math.max(0, Math.min(y + dy, sh - 4));
+  } else {
+    nx = Math.max(-settings.size.width + 40, Math.min(x + dx, sw - 40));
+    ny = Math.max(0, Math.min(y + dy, sh - 30));
+  }
+  const size = settings.uiMode === 'ball'
+    ? { width: BALL_WIN, height: BALL_WIN }
+    : settings.size;
   // 用 setBounds 代替 setPosition，每次拖动都显式锁定尺寸，杜绝 DPI 触发的系统 resize
-  mainWindow.setBounds({ x: nx, y: ny, width: settings.size.width, height: settings.size.height });
+  mainWindow.setBounds({ x: nx, y: ny, width: size.width, height: size.height });
 });
 
-// 调整大小：传增量 dw/dh 与拖动方向 edges
+// 调整大小：传增量 dw/dh 与拖动方向 edges（悬浮球模式不允许调整大小）
 ipcMain.on('window:resize', (e, dw, dh, edges) => {
   if (!mainWindow) return;
+  if (settings.uiMode === 'ball') return;
   userResizing = true;
   const [x, y] = mainWindow.getPosition();
   const [w, h] = mainWindow.getSize();
@@ -534,9 +609,73 @@ ipcMain.on('window:focus', () => {
   }
 });
 
-// 重置位置与大小：恢复默认尺寸并居中
+// ====== 悬浮球模式 IPC ======
+// 切换展开/收起模式
+ipcMain.on('ui:set-mode', (e, mode) => {
+  if (settings.uiMode !== mode) applyUiMode(mode);
+});
+
+// 鼠标悬浮在半圆上 → 整个圆浮现（仍保持贴边状态，离开后缩回）
+ipcMain.on('ball:undock', () => {
+  if (!mainWindow || settings.uiMode !== 'ball' || !ballSnapped || !ballSnapEdge) return;
+  const [x, y] = mainWindow.getPosition();
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
+  let nx = x, ny = y;
+  if (ballSnapEdge === 'left') nx = 0;
+  else if (ballSnapEdge === 'right') nx = sw - BALL_WIN;
+  else if (ballSnapEdge === 'top') ny = 0;
+  else if (ballSnapEdge === 'bottom') ny = sh - BALL_WIN;
+  userResizing = true;
+  mainWindow.setBounds({ x: nx, y: ny, width: BALL_WIN, height: BALL_WIN });
+  userResizing = false;
+});
+
+// 鼠标离开球 → 若处于贴边状态则缩回半圆
+ipcMain.on('ball:leave', () => {
+  if (!mainWindow || settings.uiMode !== 'ball' || !ballSnapped || !ballSnapEdge) return;
+  const [x, y] = mainWindow.getPosition();
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
+  let nx = x, ny = y;
+  if (ballSnapEdge === 'left') nx = -(BALL_WIN / 2);
+  else if (ballSnapEdge === 'right') nx = sw - (BALL_WIN / 2);
+  else if (ballSnapEdge === 'top') ny = -(BALL_WIN / 2);
+  else if (ballSnapEdge === 'bottom') ny = sh - (BALL_WIN / 2);
+  userResizing = true;
+  mainWindow.setBounds({ x: nx, y: ny, width: BALL_WIN, height: BALL_WIN });
+  userResizing = false;
+});
+
+// 球拖动结束：moved=true 表示确实拖动过 → 判断是否贴边半圆隐藏
+ipcMain.on('ball:end-drag', (e, moved) => {
+  if (!mainWindow || settings.uiMode !== 'ball') return;
+  if (!moved) return;  // 只是点击（如双击展开），不触发贴边
+  const [x, y] = mainWindow.getPosition();
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
+  let edge = null;
+  if (x <= SNAP_THRESHOLD) edge = 'left';
+  else if (sw - (x + BALL_WIN) <= SNAP_THRESHOLD) edge = 'right';
+  else if (y <= SNAP_THRESHOLD) edge = 'top';
+  else if (sh - (y + BALL_WIN) <= SNAP_THRESHOLD) edge = 'bottom';
+
+  let nx = x, ny = y;
+  if (edge === 'left') nx = -(BALL_WIN / 2);
+  else if (edge === 'right') nx = sw - (BALL_WIN / 2);
+  else if (edge === 'top') ny = -(BALL_WIN / 2);
+  else if (edge === 'bottom') ny = sh - (BALL_WIN / 2);
+
+  ballSnapped = !!edge;
+  ballSnapEdge = edge;
+  userResizing = true;
+  mainWindow.setBounds({ x: nx, y: ny, width: BALL_WIN, height: BALL_WIN });
+  userResizing = false;
+  settings.position = { x: nx, y: ny };
+  saveSettings(settings);
+});
+
+// 重置位置与大小：恢复默认尺寸并居中（若处于悬浮球模式则先展开）
 ipcMain.on('window:reset', () => {
   if (!mainWindow) return;
+  if (settings.uiMode === 'ball') applyUiMode('expanded');
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
   const nw = 240, nh = 88;
   const nx = Math.floor((sw - nw) / 2);
@@ -547,9 +686,10 @@ ipcMain.on('window:reset', () => {
   saveSettings(settings);
 });
 
-// 仅重置大小，保留当前位置
+// 仅重置大小，保留当前位置（若处于悬浮球模式则先展开）
 ipcMain.on('window:reset-size', () => {
   if (!mainWindow) return;
+  if (settings.uiMode === 'ball') applyUiMode('expanded');
   const [x, y] = mainWindow.getPosition();
   const nw = 240, nh = 88;
   settings.size = { width: nw, height: nh };

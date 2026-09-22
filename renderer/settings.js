@@ -15,6 +15,7 @@
     right: document.getElementById('align-right')
   };
   const autostartToggle = document.getElementById('autostart-toggle');
+  const uiModeToggle = document.getElementById('ui-mode-toggle');
 
   let currentSettings = null;
   let allThemes = {};
@@ -84,6 +85,15 @@
     });
   });
 
+  // ====== 悬浮球模式 ======
+  // 开关状态 = 悬浮球模式（checked=ball / unchecked=expanded）
+  uiModeToggle.addEventListener('change', async () => {
+    const want = uiModeToggle.checked ? 'ball' : 'expanded';
+    // patchSettings 内部会调用 applyUiMode：
+    // 切到 ball 时主进程会自动关闭本设置窗；切回 expanded 时本窗保留并实时同步
+    await window.oncall.patchSettings({ uiMode: want });
+  });
+
   // ====== 开机自启动 ======
   async function refreshAutoStart() {
     const r = await window.oncall.getAutoStart();
@@ -131,11 +141,19 @@
     buildThemeList();
   });
 
+  // 模式切换（可能来自主窗双击展开等）→ 同步开关状态
+  window.oncall.onUiModeChanged((data) => {
+    if (data && data.uiMode) {
+      uiModeToggle.checked = data.uiMode === 'ball';
+    }
+  });
+
   // ====== 初始化 ======
   (async function init() {
     const data = await window.oncall.getSettings();
     currentSettings = data.settings;
     syncFontUI();
+    uiModeToggle.checked = data.settings.uiMode === 'ball';
     await buildThemeList();
     await refreshAutoStart();
   })();

@@ -35,6 +35,12 @@ contextBridge.exposeInMainWorld('oncall', {
   // 编辑（设置窗发起）
   startEdit: () => ipcRenderer.send('edit:start'),
 
+  // 悬浮球模式
+  setUiMode: (mode) => ipcRenderer.send('ui:set-mode', mode),
+  ballUndock: () => ipcRenderer.send('ball:undock'),
+  ballLeave: () => ipcRenderer.send('ball:leave'),
+  ballEndDrag: (moved) => ipcRenderer.send('ball:end-drag', !!moved),
+
   // 监听主进程事件
   onOpacityChanged: (cb) => {
     const handler = (_e, data) => cb(data);
@@ -45,6 +51,11 @@ contextBridge.exposeInMainWorld('oncall', {
     const handler = (_e, data) => cb(data);
     ipcRenderer.on('theme:changed', handler);
     return () => ipcRenderer.removeListener('theme:changed', handler);
+  },
+  onUiModeChanged: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on('ui:mode-changed', handler);
+    return () => ipcRenderer.removeListener('ui:mode-changed', handler);
   },
   onEditStart: (cb) => {
     const handler = () => cb();

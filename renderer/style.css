@@ -150,6 +150,74 @@ body[data-editing="true"] .settings-btn {
   letter-spacing: 0.3px;
 }
 
+/* === 悬浮球 === */
+.ball-view {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.ball {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  /* 背景 / 边框由 applyTheme() 按主题设置 */
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 无投影：保证贴边半圆与四角完全干净透明 */
+  box-shadow: none;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+/* TODO 图标：独立元素 + transform 缩放（GPU 合成，丝滑不闪动） */
+.ball-icon {
+  width: 24px;
+  height: 24px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  pointer-events: none;
+  transform: scale(1);
+  transition: transform 0.22s cubic-bezier(0.25, 0.8, 0.25, 1);
+  will-change: transform;
+}
+
+.ball:hover .ball-icon {
+  transform: scale(1.18);
+}
+
+.ball.dragging {
+  cursor: grabbing;
+}
+
+.ball.dragging .ball-icon {
+  transform: scale(1);
+}
+
+/* === 模式显隐：data-ui-mode === */
+body[data-ui-mode="ball"] #label {
+  display: none;
+}
+
+body[data-ui-mode="ball"] .ball-view {
+  display: flex;
+}
+
+/* 球模式：整窗裁剪为圆形，四角完全透明、无任何残留 */
+body[data-ui-mode="ball"] {
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+body[data-ui-mode="expanded"] .ball-view {
+  display: none;
+}
+
 /* 调整大小热区：4 个边 + 4 个角 */
 .label::before,
 .label::after {
