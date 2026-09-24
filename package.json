@@ -1,7 +1,7 @@
 {
   "name": "oncall-label",
   "productName": "随时标签 OnCallLabel",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "桌面悬浮标签：在桌面上不透明度100%，其他窗口前置时自动降低不透明度；Ctrl+双击编辑、鼠标拖动移动、Ctrl+拖动边缘调整大小；支持主题。",
   "main": "main.js",
   "author": "OnCallLabel",
